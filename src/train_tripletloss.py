@@ -47,7 +47,7 @@ from tensorflow.python.ops import data_flow_ops
 
 from six.moves import xrange  # @UnresolvedImport
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 def main(args):
@@ -59,8 +59,8 @@ def main(args):
     if not os.path.isdir(log_dir):  # Create the log directory if it doesn't exist
         os.makedirs(log_dir)
     model_dir = os.path.join(os.path.expanduser(args.models_base_dir), subdir)
-    if not os.path.isdir(model_dir):  # Create the model directory if it doesn't exist
-        os.makedirs(model_dir)
+    # if not os.path.isdir(model_dir):  # Create the model directory if it doesn't exist
+    #    os.makedirs(model_dir)
 
     # Write arguments to a text file
     facenet.write_arguments_to_file(args, os.path.join(log_dir, 'arguments.txt'))
@@ -211,30 +211,39 @@ def main(args):
 
                 # Save variables and the metagraph if it doesn't exist already
                 #save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
-                checkpoint.save(file_prefix='chkp')
+                checkpoint.save(file_prefix=model_dir + '/')
                 imgs = test_dataset.images
                 img = []
-                is_same = []
                 c_same = 0
                 c_diff = 0
                 for i in range(len(imgs)):
                     im2 = imgs[i]
                     if len(im2) > 1:
                         random.shuffle(im2)
-                        img.append(im2[0]['src'])
-                        img.append(im2[1]['src'])
-                        is_same = True
+                        img.append([
+                            im2[0]['src'],
+                            im2[1]['src'],
+                            True
+                        ])
                         c_same += 1
-                while c_diff < c_same:
-                    a = random.randint(0, len(imgs))
-                    b = random.randint(0, len(imgs))
+                while c_diff < c_same or (c_diff + c_same) % 3 != 0:
+                    a = random.randint(0, len(imgs) - 1)
+                    b = random.randint(0, len(imgs) - 1)
                     if a != b:
-                        img.append(imgs[a][-1]['src'])
-                        img.append(imgs[b][-1]['src'])
+                        img.append([
+                            imgs[a][-1]['src'],
+                            imgs[b][-1]['src'],
+                            False
+                        ])
                         c_diff += 1
-                        is_same = False
+                random.shuffle(img)
+                is_same = [x[2] for x in img]
+                img = [y for x in img for y in x[0:-1]]
 
-                evaluate(sess, img, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
+                evaluate(sess, img, embeddings, labels_batch,
+                         image_placeholder,
+                         # image_paths_placeholder,
+                         labels_placeholder,
                          batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, is_same, args.batch_size,
                          args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size, args)
 
