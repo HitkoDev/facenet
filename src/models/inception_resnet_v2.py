@@ -136,7 +136,7 @@ def inception_resnet_v2(inputs, is_training=True,
                                 stride=1, padding='SAME'):
       
                 # 149 x 149 x 32
-                net = slim.conv2d(inputs, 32, 3, stride=2, padding='VALID',
+                net = slim.conv2d(tf.cast(inputs, tf.float32), 32, 3, stride=2, padding='VALID',
                                   scope='Conv2d_1a_3x3')
                 end_points['Conv2d_1a_3x3'] = net
                 # 147 x 147 x 32

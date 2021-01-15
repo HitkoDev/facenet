@@ -92,3 +92,9 @@ ENV/
 
 # PyCharm project setting
 .idea
+
+images/**/awe*
+images/**/AWE*
+images/**/converted*
+logs
+models
