@@ -38,6 +38,7 @@ import importlib
 import itertools
 import argparse
 import facenet
+import random
 import lfw
 from awe_dataset import AWEDataset
 import cv2
@@ -161,7 +162,7 @@ def main(args):
 
         # Build a Graph that trains the model with one batch of examples and updates the model parameters
         train_op, opt = facenet.train(total_loss, global_step, args.optimizer,
-                                 learning_rate, args.moving_average_decay, tf.compat.v1.global_variables())
+                                      learning_rate, args.moving_average_decay, tf.compat.v1.global_variables())
 
         # Create a saver
         saver = tf.compat.v1.train.Saver(tf.compat.v1.trainable_variables(), max_to_keep=3)
@@ -211,11 +212,20 @@ def main(args):
                 # Save variables and the metagraph if it doesn't exist already
                 #save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
                 checkpoint.save(file_prefix='chkp')
-                # Evaluate on LFW
-                if args.lfw_dir:
-                    evaluate(sess, lfw_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
-                             batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, actual_issame, args.batch_size,
-                             args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size)
+                imgs = [x for x in test_dataset.images]
+                random.shuffle(imgs)
+                img = []
+                is_same = []
+                for i in range(len(imgs)) // 2:
+                    a = imgs[2 * i]
+                    b = imgs[2 * i + 1]
+                    is_same.append(a['class'] == b['class'])
+                    img.append(a)
+                    img.append(b)
+
+                evaluate(sess, img, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
+                         batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, is_same, args.batch_size,
+                         args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size)
 
     return model_dir
 
