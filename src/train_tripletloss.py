@@ -46,7 +46,7 @@ from tensorflow.python.ops import data_flow_ops
 
 from six.moves import xrange  # @UnresolvedImport
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 def main(args):
@@ -160,7 +160,7 @@ def main(args):
         total_loss = tf.add_n([triplet_loss] + regularization_losses, name='total_loss')
 
         # Build a Graph that trains the model with one batch of examples and updates the model parameters
-        train_op = facenet.train(total_loss, global_step, args.optimizer,
+        train_op, opt = facenet.train(total_loss, global_step, args.optimizer,
                                  learning_rate, args.moving_average_decay, tf.compat.v1.global_variables())
 
         # Create a saver
@@ -186,8 +186,7 @@ def main(args):
 
         train_dataset = AWEDataset(train_dataset_path)
         test_dataset = AWEDataset(test_dataset_path)
-        checkpoint = tf.train.Checkpoint(optimizer=train_op)
-        status = checkpoint.restore(tf.train.latest_checkpoint(model_dir))
+        checkpoint = tf.train.Checkpoint(optimizer=opt)
 
         with sess.as_default():
 
@@ -211,7 +210,7 @@ def main(args):
 
                 # Save variables and the metagraph if it doesn't exist already
                 #save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
-                checkpoint.save(file_prefix='chk')
+                checkpoint.save()
                 # Evaluate on LFW
                 if args.lfw_dir:
                     evaluate(sess, lfw_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
