@@ -212,16 +212,27 @@ def main(args):
                 # Save variables and the metagraph if it doesn't exist already
                 #save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
                 checkpoint.save(file_prefix='chkp')
-                imgs = [x for x in test_dataset.images]
-                random.shuffle(imgs)
+                imgs = test_dataset.images
                 img = []
                 is_same = []
-                for i in range(len(imgs) // 2):
-                    a = imgs[2 * i]
-                    b = imgs[2 * i + 1]
-                    is_same.append(a['class'] == b['class'])
-                    img.append(a)
-                    img.append(b)
+                c_same = 0
+                c_diff = 0
+                for i in range(len(imgs)):
+                    im2 = imgs[i]
+                    if len(im2) > 1:
+                        random.shuffle(im2)
+                        img.append(im2[0]['src'])
+                        img.append(im2[1]['src'])
+                        is_same = True
+                        c_same += 1
+                while c_diff < c_same:
+                    a = random.randint(0, len(imgs))
+                    b = random.randint(0, len(imgs))
+                    if a != b:
+                        img.append(imgs[a][-1]['src'])
+                        img.append(imgs[b][-1]['src'])
+                        c_diff += 1
+                        is_same = False
 
                 evaluate(sess, img, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
                          batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, is_same, args.batch_size,
