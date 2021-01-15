@@ -1,9 +1,12 @@
 scipy
 scikit-learn
 opencv-python
-h5py
+h5py==2.10.0
 matplotlib
 Pillow
 requests
 psutil
 tf_slim
+tensorflow-gpu
+imgaug
+scikit-image

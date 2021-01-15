@@ -5,7 +5,6 @@ from os import path
 import cv2
 import shutil
 import numpy as np
-import skimage.draw
 import skimage.io
 
 images = {}

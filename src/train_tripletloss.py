@@ -186,6 +186,8 @@ def main(args):
 
         train_dataset = AWEDataset(train_dataset_path)
         test_dataset = AWEDataset(test_dataset_path)
+        checkpoint = tf.train.Checkpoint(optimizer=train_op)
+        status = checkpoint.restore(tf.train.latest_checkpoint(model_dir))
 
         with sess.as_default():
 
@@ -208,8 +210,8 @@ def main(args):
                       args.embedding_size, anchor, positive, negative, triplet_loss)
 
                 # Save variables and the metagraph if it doesn't exist already
-                save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
-
+                #save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
+                checkpoint.save(file_prefix='chk')
                 # Evaluate on LFW
                 if args.lfw_dir:
                     evaluate(sess, lfw_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
@@ -272,8 +274,8 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
                 mask_shape = mask.shape
                 # Make augmenters deterministic to apply similarly to images and masks
                 det = augmentation.to_deterministic()
-                #image = det.augment_image(image)
-                #mask = det.augment_image(mask)
+                image = det.augment_image(image)
+                mask = det.augment_image(mask)
                 # Verify that shapes didn't change
                 assert image.shape == image_shape, "Augmentation shouldn't change image size"
                 assert mask.shape == mask_shape, "Augmentation shouldn't change mask size"
