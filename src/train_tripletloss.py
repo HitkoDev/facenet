@@ -226,7 +226,7 @@ def main(args):
                             True
                         ])
                         c_same += 1
-                while c_diff < c_same or (c_diff + c_same) % 3 != 0:
+                while c_diff < (c_same * 5) or (c_diff + c_same) % 3 != 0:
                     a = random.randint(0, len(imgs) - 1)
                     b = random.randint(0, len(imgs) - 1)
                     if a != b:
@@ -303,8 +303,8 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
                 mask_shape = mask.shape
                 # Make augmenters deterministic to apply similarly to images and masks
                 det = augmentation.to_deterministic()
-                image = det.augment_image(image)
-                mask = det.augment_image(mask)
+                #image = det.augment_image(image)
+                #mask = det.augment_image(mask)
                 # Verify that shapes didn't change
                 assert image.shape == image_shape, "Augmentation shouldn't change image size"
                 assert mask.shape == mask_shape, "Augmentation shouldn't change mask size"
@@ -569,7 +569,7 @@ def parse_arguments(argv):
     parser.add_argument('--images_per_person', type=int,
                         help='Number of images per person.', default=3)
     parser.add_argument('--epoch_size', type=int,
-                        help='Number of batches per epoch.', default=50)
+                        help='Number of batches per epoch.', default=99)
     parser.add_argument('--alpha', type=float,
                         help='Positive to negative triplet distance margin.', default=0.2)
     parser.add_argument('--embedding_size', type=int,
