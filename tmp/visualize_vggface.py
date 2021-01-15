@@ -5,9 +5,9 @@ import tmp.vggface16
 
 def main():
   
-    sess = tf.Session()
+    sess = tf.compat.v1.Session()
   
-    t_input = tf.placeholder(np.float32, name='input') # define the input tensor
+    t_input = tf.compat.v1.placeholder(np.float32, name='input') # define the input tensor
     image_mean = 117.0
     t_preprocessed = tf.expand_dims(t_input-image_mean, 0)
      
@@ -33,8 +33,8 @@ def visstd(a, s=0.1):
     return (a-a.mean())/max(a.std(), 1e-4)*s + 0.5
 
 def render_naive(sess, t_input, t_obj, img0, iter_n=20, step=1.0):
-    t_score = tf.reduce_mean(t_obj) # defining the optimization objective
-    t_grad = tf.gradients(t_score, t_input)[0] # behold the power of automatic differentiation!
+    t_score = tf.reduce_mean(input_tensor=t_obj) # defining the optimization objective
+    t_grad = tf.gradients(ys=t_score, xs=t_input)[0] # behold the power of automatic differentiation!
     
     img = img0.copy()
     for _ in range(iter_n):

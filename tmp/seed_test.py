@@ -9,28 +9,28 @@ from tensorflow.python.ops import array_ops
 
 from six.moves import xrange
 
-tf.app.flags.DEFINE_integer('batch_size', 90,
+tf.compat.v1.app.flags.DEFINE_integer('batch_size', 90,
                             """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_integer('image_size', 96,
+tf.compat.v1.app.flags.DEFINE_integer('image_size', 96,
                             """Image size (height, width) in pixels.""")
-tf.app.flags.DEFINE_float('alpha', 0.2,
+tf.compat.v1.app.flags.DEFINE_float('alpha', 0.2,
                           """Positive to negative triplet distance margin.""")
-tf.app.flags.DEFINE_float('learning_rate', 0.1,
+tf.compat.v1.app.flags.DEFINE_float('learning_rate', 0.1,
                           """Initial learning rate.""")
-tf.app.flags.DEFINE_float('moving_average_decay', 0.9999,
+tf.compat.v1.app.flags.DEFINE_float('moving_average_decay', 0.9999,
                           """Expontential decay for tracking of training parameters.""")
 
-FLAGS = tf.app.flags.FLAGS
+FLAGS = tf.compat.v1.app.flags.FLAGS
 
 def run_train():
   
   with tf.Graph().as_default():
   
     # Set the seed for the graph
-    tf.set_random_seed(666)
+    tf.compat.v1.set_random_seed(666)
 
     # Placeholder for input images
-    images_placeholder = tf.placeholder(tf.float32, shape=(FLAGS.batch_size, FLAGS.image_size, FLAGS.image_size, 3), name='input')
+    images_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(FLAGS.batch_size, FLAGS.image_size, FLAGS.image_size, 3), name='input')
     
     # Build the inference graph
     embeddings = inference_conv_test(images_placeholder)
@@ -47,22 +47,22 @@ def run_train():
     #negative = resh1[2,:,:]
     
     # Calculate triplet loss
-    pos_dist = tf.reduce_sum(tf.square(tf.sub(anchor, positive)), 1)
-    neg_dist = tf.reduce_sum(tf.square(tf.sub(anchor, negative)), 1)
+    pos_dist = tf.reduce_sum(input_tensor=tf.square(tf.sub(anchor, positive)), axis=1)
+    neg_dist = tf.reduce_sum(input_tensor=tf.square(tf.sub(anchor, negative)), axis=1)
     basic_loss = tf.add(tf.sub(pos_dist,neg_dist), FLAGS.alpha)
-    loss = tf.reduce_mean(tf.maximum(basic_loss, 0.0), 0)
+    loss = tf.reduce_mean(input_tensor=tf.maximum(basic_loss, 0.0), axis=0)
 
     # Build a Graph that trains the model with one batch of examples and updates the model parameters
-    opt = tf.train.GradientDescentOptimizer(FLAGS.learning_rate)
+    opt = tf.compat.v1.train.GradientDescentOptimizer(FLAGS.learning_rate)
     #opt = tf.train.AdagradOptimizer(FLAGS.learning_rate)  # Optimizer does not seem to matter
     grads = opt.compute_gradients(loss)
     train_op = opt.apply_gradients(grads)
     
     # Initialize the variables
-    init = tf.global_variables_initializer()
+    init = tf.compat.v1.global_variables_initializer()
     
     # Launch the graph.
-    sess = tf.Session()
+    sess = tf.compat.v1.Session()
     sess.run(init)
 
     # Set the numpy seed
@@ -76,7 +76,7 @@ def run_train():
         batch = np.random.random((FLAGS.batch_size, FLAGS.image_size, FLAGS.image_size, 3))
         feed_dict = { images_placeholder: batch }
         # Get the variables
-        var_names = tf.global_variables()
+        var_names = tf.compat.v1.global_variables()
         all_vars  += sess.run(var_names, feed_dict=feed_dict)
         # Get the gradients
         grad_tensors, grad_vars = zip(*grads)
@@ -88,10 +88,10 @@ def run_train():
   return (var_names, all_vars, grad_vars, grads_eval)
 
 def _conv(inpOp, nIn, nOut, kH, kW, dH, dW, padType):
-  kernel = tf.Variable(tf.truncated_normal([kH, kW, nIn, nOut],
+  kernel = tf.Variable(tf.random.truncated_normal([kH, kW, nIn, nOut],
                                            dtype=tf.float32,
                                            stddev=1e-1), name='weights')
-  conv = tf.nn.conv2d(inpOp, kernel, [1, dH, dW, 1], padding=padType)
+  conv = tf.nn.conv2d(input=inpOp, filters=kernel, strides=[1, dH, dW, 1], padding=padType)
   
   biases = tf.Variable(tf.constant(0.0, shape=[nOut], dtype=tf.float32),
                        trainable=True, name='biases')
@@ -100,12 +100,12 @@ def _conv(inpOp, nIn, nOut, kH, kW, dH, dW, padType):
   return conv1
 
 def _affine(inpOp, nIn, nOut):
-  kernel = tf.Variable(tf.truncated_normal([nIn, nOut],
+  kernel = tf.Variable(tf.random.truncated_normal([nIn, nOut],
                                            dtype=tf.float32,
                                            stddev=1e-1), name='weights')
   biases = tf.Variable(tf.constant(0.0, shape=[nOut], dtype=tf.float32),
                        trainable=True, name='biases')
-  affine1 = tf.nn.relu_layer(inpOp, kernel, biases)
+  affine1 = tf.compat.v1.nn.relu_layer(inpOp, kernel, biases)
   return affine1
   
 def inference_conv_test(images):

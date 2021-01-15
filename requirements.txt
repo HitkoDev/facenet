@@ -1,4 +1,3 @@
-tensorflow==1.7
 scipy
 scikit-learn
 opencv-python
@@ -7,3 +6,4 @@ matplotlib
 Pillow
 requests
 psutil
+tf_slim

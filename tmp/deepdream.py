@@ -32,11 +32,11 @@ def main():
     
     # creating TensorFlow session and loading the model
     graph = tf.Graph()
-    sess = tf.InteractiveSession(graph=graph)
-    with tf.gfile.FastGFile(os.path.join(data_dir, model_fn), 'rb') as f:
-        graph_def = tf.GraphDef()
+    sess = tf.compat.v1.InteractiveSession(graph=graph)
+    with tf.compat.v1.gfile.FastGFile(os.path.join(data_dir, model_fn), 'rb') as f:
+        graph_def = tf.compat.v1.GraphDef()
         graph_def.ParseFromString(f.read())
-    t_input = tf.placeholder(np.float32, name='input') # define the input tensor
+    t_input = tf.compat.v1.placeholder(np.float32, name='input') # define the input tensor
     imagenet_mean = 117.0
     t_preprocessed = tf.expand_dims(t_input-imagenet_mean, 0)
     tf.import_graph_def(graph_def, {'input':t_preprocessed})
@@ -52,7 +52,7 @@ def main():
     #pylint: disable=unused-variable
     def strip_consts(graph_def, max_const_size=32):
         """Strip large constant values from graph_def."""
-        strip_def = tf.GraphDef()
+        strip_def = tf.compat.v1.GraphDef()
         for n0 in graph_def.node:
             n = strip_def.node.add() #pylint: disable=maybe-no-member
             n.MergeFrom(n0)
@@ -64,7 +64,7 @@ def main():
         return strip_def
       
     def rename_nodes(graph_def, rename_func):
-        res_def = tf.GraphDef()
+        res_def = tf.compat.v1.GraphDef()
         for n0 in graph_def.node:
             n = res_def.node.add() #pylint: disable=maybe-no-member
             n.MergeFrom(n0)
@@ -87,8 +87,8 @@ def main():
         return graph.get_tensor_by_name("import/%s:0"%layer)
     
     def render_naive(t_obj, img0=img_noise, iter_n=20, step=1.0):
-        t_score = tf.reduce_mean(t_obj) # defining the optimization objective
-        t_grad = tf.gradients(t_score, t_input)[0] # behold the power of automatic differentiation!
+        t_score = tf.reduce_mean(input_tensor=t_obj) # defining the optimization objective
+        t_grad = tf.gradients(ys=t_score, xs=t_input)[0] # behold the power of automatic differentiation!
         
         img = img0.copy()
         for _ in range(iter_n):
@@ -102,7 +102,7 @@ def main():
         '''Helper that transforms TF-graph generating function into a regular one.
         See "resize" function below.
         '''
-        placeholders = list(map(tf.placeholder, argtypes))
+        placeholders = list(map(tf.compat.v1.placeholder, argtypes))
         def wrap(f):
             out = f(*placeholders)
             def wrapper(*args, **kw):
@@ -113,7 +113,7 @@ def main():
     # Helper function that uses TF to resize an image
     def resize(img, size):
         img = tf.expand_dims(img, 0)
-        return tf.image.resize_bilinear(img, size)[0,:,:,:]
+        return tf.image.resize(img, size, method=tf.image.ResizeMethod.BILINEAR)[0,:,:,:]
     resize = tffunc(np.float32, np.int32)(resize)
     
     
@@ -134,8 +134,8 @@ def main():
         return np.roll(np.roll(grad, -sx, 1), -sy, 0)    
       
     def render_multiscale(t_obj, img0=img_noise, iter_n=10, step=1.0, octave_n=3, octave_scale=1.4):
-        t_score = tf.reduce_mean(t_obj) # defining the optimization objective
-        t_grad = tf.gradients(t_score, t_input)[0] # behold the power of automatic differentiation!
+        t_score = tf.reduce_mean(input_tensor=t_obj) # defining the optimization objective
+        t_grad = tf.gradients(ys=t_score, xs=t_input)[0] # behold the power of automatic differentiation!
         
         img = img0.copy()
         for octave in range(octave_n):
@@ -151,9 +151,9 @@ def main():
             
     def lap_split(img):
         '''Split the image into lo and hi frequency components'''
-        with tf.name_scope('split'):
-            lo = tf.nn.conv2d(img, k5x5, [1,2,2,1], 'SAME')
-            lo2 = tf.nn.conv2d_transpose(lo, k5x5*4, tf.shape(img), [1,2,2,1])
+        with tf.compat.v1.name_scope('split'):
+            lo = tf.nn.conv2d(input=img, filters=k5x5, strides=[1,2,2,1], padding='SAME')
+            lo2 = tf.nn.conv2d_transpose(lo, k5x5*4, tf.shape(input=img), [1,2,2,1])
             hi = img-lo2
         return lo, hi
     
@@ -170,14 +170,14 @@ def main():
         '''Merge Laplacian pyramid'''
         img = levels[0]
         for hi in levels[1:]:
-            with tf.name_scope('merge'):
-                img = tf.nn.conv2d_transpose(img, k5x5*4, tf.shape(hi), [1,2,2,1]) + hi
+            with tf.compat.v1.name_scope('merge'):
+                img = tf.nn.conv2d_transpose(img, k5x5*4, tf.shape(input=hi), [1,2,2,1]) + hi
         return img
     
     def normalize_std(img, eps=1e-10):
         '''Normalize image by making its standard deviation = 1.0'''
-        with tf.name_scope('normalize'):
-            std = tf.sqrt(tf.reduce_mean(tf.square(img)))
+        with tf.compat.v1.name_scope('normalize'):
+            std = tf.sqrt(tf.reduce_mean(input_tensor=tf.square(img)))
             return img/tf.maximum(std, eps)
     
     def lap_normalize(img, scale_n=4):
@@ -190,8 +190,8 @@ def main():
   
     def render_lapnorm(t_obj, img0=img_noise, visfunc=visstd,
                        iter_n=10, step=1.0, octave_n=3, octave_scale=1.4, lap_n=4):
-        t_score = tf.reduce_mean(t_obj) # defining the optimization objective
-        t_grad = tf.gradients(t_score, t_input)[0] # behold the power of automatic differentiation!
+        t_score = tf.reduce_mean(input_tensor=t_obj) # defining the optimization objective
+        t_grad = tf.gradients(ys=t_score, xs=t_input)[0] # behold the power of automatic differentiation!
         # build the laplacian normalization graph
         lap_norm_func = tffunc(np.float32)(partial(lap_normalize, scale_n=lap_n))
     
@@ -208,8 +208,8 @@ def main():
   
     def render_deepdream(t_obj, img0=img_noise,
                          iter_n=10, step=1.5, octave_n=4, octave_scale=1.4):
-        t_score = tf.reduce_mean(t_obj) # defining the optimization objective
-        t_grad = tf.gradients(t_score, t_input)[0] # behold the power of automatic differentiation!
+        t_score = tf.reduce_mean(input_tensor=t_obj) # defining the optimization objective
+        t_grad = tf.gradients(ys=t_score, xs=t_input)[0] # behold the power of automatic differentiation!
     
         # split the image into a number of octaves
         img = img0

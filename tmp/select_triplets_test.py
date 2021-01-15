@@ -2,11 +2,11 @@ import facenet
 import numpy as np
 import tensorflow as tf
 
-FLAGS = tf.app.flags.FLAGS
+FLAGS = tf.compat.v1.app.flags.FLAGS
 
-tf.app.flags.DEFINE_integer('people_per_batch', 45,
+tf.compat.v1.app.flags.DEFINE_integer('people_per_batch', 45,
                             """Number of people per batch.""")
-tf.app.flags.DEFINE_integer('alpha', 0.2,
+tf.compat.v1.app.flags.DEFINE_integer('alpha', 0.2,
                             """Positive to negative triplet distance margin.""")
 
 

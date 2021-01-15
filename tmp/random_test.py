@@ -4,11 +4,11 @@ from six.moves import xrange
 
 
 with tf.Graph().as_default():
-  tf.set_random_seed(666)
+  tf.compat.v1.set_random_seed(666)
 
 
   # Placeholder for input images
-  input_placeholder = tf.placeholder(tf.float32, shape=(9, 7), name='input')
+  input_placeholder = tf.compat.v1.placeholder(tf.float32, shape=(9, 7), name='input')
   
   # Split example embeddings into anchor, positive and negative
   #anchor, positive, negative = tf.split(0, 3, input)
@@ -18,10 +18,10 @@ with tf.Graph().as_default():
   negative = resh1[2,:,:]
   
   # Build an initialization operation to run below.
-  init = tf.global_variables_initializer()
+  init = tf.compat.v1.global_variables_initializer()
 
   # Start running operations on the Graph.
-  sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
+  sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(log_device_placement=False))
   sess.run(init)
   
   with sess.as_default():

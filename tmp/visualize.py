@@ -43,9 +43,9 @@ def main(args):
     np.random.seed(seed=args.seed)
     img_noise = np.random.uniform(size=(args.image_size,args.image_size,3)) + 100.0
   
-    sess = tf.Session()
+    sess = tf.compat.v1.Session()
   
-    t_input = tf.placeholder(np.float32, shape=(args.image_size,args.image_size,3), name='input') # define the input tensor
+    t_input = tf.compat.v1.placeholder(np.float32, shape=(args.image_size,args.image_size,3), name='input') # define the input tensor
     image_mean = 117.0
     t_preprocessed = tf.expand_dims(t_input-image_mean, 0)
      
@@ -54,12 +54,12 @@ def main(args):
             phase_train=True, weight_decay=0.0)
       
     # Create a saver for restoring variables
-    saver = tf.train.Saver(tf.global_variables())
+    saver = tf.compat.v1.train.Saver(tf.compat.v1.global_variables())
   
     # Restore the parameters
     saver.restore(sess, args.model_file)
   
-    layers = [op.name for op in tf.get_default_graph().get_operations() if op.type=='Conv2D']
+    layers = [op.name for op in tf.compat.v1.get_default_graph().get_operations() if op.type=='Conv2D']
     feature_nums = {layer: int(T(layer).get_shape()[-1]) for layer in layers}
   
     print('Number of layers: %d' % len(layers))
@@ -85,15 +85,15 @@ def main(args):
 
 def T(layer):
     '''Helper for getting layer output tensor'''
-    return tf.get_default_graph().get_tensor_by_name('%s:0' % layer)
+    return tf.compat.v1.get_default_graph().get_tensor_by_name('%s:0' % layer)
 
 def visstd(a, s=0.1):
     '''Normalize the image range for visualization'''
     return (a-a.mean())/max(a.std(), 1e-4)*s + 0.5
 
 def render_naive(sess, t_input, t_obj, img0, iter_n=20, step=1.0):
-    t_score = tf.reduce_mean(t_obj) # defining the optimization objective
-    t_grad = tf.gradients(t_score, t_input)[0] # behold the power of automatic differentiation!
+    t_score = tf.reduce_mean(input_tensor=t_obj) # defining the optimization objective
+    t_grad = tf.gradients(ys=t_score, xs=t_input)[0] # behold the power of automatic differentiation!
     
     img = img0.copy()
     for _ in range(iter_n):

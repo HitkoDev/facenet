@@ -74,7 +74,7 @@ def inference(images, keep_probability, phase_train=True, weight_decay=0.0):
     endpoints['pool6'] = net
     net = tf.reshape(net, [-1, 1024])
     endpoints['prelogits'] = net
-    net = tf.nn.dropout(net, keep_probability)
+    net = tf.nn.dropout(net, 1 - (keep_probability))
     endpoints['dropout'] = net
     
     return net, endpoints

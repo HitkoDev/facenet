@@ -48,10 +48,10 @@ NOISE_FACTOR = 0.2
 BETA = 0.8
 
 
-tf.app.flags.DEFINE_boolean("self_test", False, "True if running a self test.")
-tf.app.flags.DEFINE_boolean('use_fp16', False,
+tf.compat.v1.app.flags.DEFINE_boolean("self_test", False, "True if running a self test.")
+tf.compat.v1.app.flags.DEFINE_boolean('use_fp16', False,
                             "Use half floats instead of full floats if True.")
-FLAGS = tf.app.flags.FLAGS
+FLAGS = tf.compat.v1.app.flags.FLAGS
 
 
 def data_type():
@@ -64,12 +64,12 @@ def data_type():
 
 def maybe_download(filename):
     """Download the data from Yann's website, unless it's already here."""
-    if not tf.gfile.Exists(WORK_DIRECTORY):
-        tf.gfile.MakeDirs(WORK_DIRECTORY)
+    if not tf.io.gfile.exists(WORK_DIRECTORY):
+        tf.io.gfile.makedirs(WORK_DIRECTORY)
     filepath = os.path.join(WORK_DIRECTORY, filename)
-    if not tf.gfile.Exists(filepath):
+    if not tf.io.gfile.exists(filepath):
         filepath, _ = urllib.request.urlretrieve(SOURCE_URL + filename, filepath)
-        with tf.gfile.GFile(filepath) as f:
+        with tf.io.gfile.GFile(filepath) as f:
             size = f.size()
         print('Successfully downloaded', filename, size, 'bytes.')
     return filepath
@@ -157,11 +157,11 @@ def main(argv=None):  # pylint: disable=unused-argument
     # This is where training samples and labels are fed to the graph.
     # These placeholder nodes will be fed a batch of training data at each
     # training step using the {feed_dict} argument to the Run() call below.
-    train_data_node = tf.placeholder(
+    train_data_node = tf.compat.v1.placeholder(
         data_type(),
         shape=(BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, NUM_CHANNELS))
-    train_labels_node = tf.placeholder(tf.int64, shape=(BATCH_SIZE,))
-    eval_data = tf.placeholder(
+    train_labels_node = tf.compat.v1.placeholder(tf.int64, shape=(BATCH_SIZE,))
+    eval_data = tf.compat.v1.placeholder(
         data_type(),
         shape=(EVAL_BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, NUM_CHANNELS))
 
@@ -169,21 +169,21 @@ def main(argv=None):  # pylint: disable=unused-argument
     # initial value which will be assigned when we call:
     # {tf.global_variables_initializer().run()}
     conv1_weights = tf.Variable(
-        tf.truncated_normal([5, 5, NUM_CHANNELS, 32],  # 5x5 filter, depth 32.
+        tf.random.truncated_normal([5, 5, NUM_CHANNELS, 32],  # 5x5 filter, depth 32.
                             stddev=0.1,
                             seed=SEED, dtype=data_type()))
     conv1_biases = tf.Variable(tf.zeros([32], dtype=data_type()))
-    conv2_weights = tf.Variable(tf.truncated_normal(
+    conv2_weights = tf.Variable(tf.random.truncated_normal(
         [5, 5, 32, 64], stddev=0.1,
         seed=SEED, dtype=data_type()))
     conv2_biases = tf.Variable(tf.constant(0.1, shape=[64], dtype=data_type()))
     fc1_weights = tf.Variable(  # fully connected, depth 512.
-        tf.truncated_normal([IMAGE_SIZE // 4 * IMAGE_SIZE // 4 * 64, 512],
+        tf.random.truncated_normal([IMAGE_SIZE // 4 * IMAGE_SIZE // 4 * 64, 512],
                             stddev=0.1,
                             seed=SEED,
                             dtype=data_type()))
     fc1_biases = tf.Variable(tf.constant(0.1, shape=[512], dtype=data_type()))
-    fc2_weights = tf.Variable(tf.truncated_normal([512, NUM_LABELS],
+    fc2_weights = tf.Variable(tf.random.truncated_normal([512, NUM_LABELS],
                                                   stddev=0.1,
                                                   seed=SEED,
                                                   dtype=data_type()))
@@ -197,24 +197,24 @@ def main(argv=None):  # pylint: disable=unused-argument
         # 2D convolution, with 'SAME' padding (i.e. the output feature map has
         # the same size as the input). Note that {strides} is a 4D array whose
         # shape matches the data layout: [image index, y, x, depth].
-        conv = tf.nn.conv2d(data,
-                            conv1_weights,
+        conv = tf.nn.conv2d(input=data,
+                            filters=conv1_weights,
                             strides=[1, 1, 1, 1],
                             padding='SAME')
         # Bias and rectified linear non-linearity.
         relu = tf.nn.relu(tf.nn.bias_add(conv, conv1_biases))
         # Max pooling. The kernel size spec {ksize} also follows the layout of
         # the data. Here we have a pooling window of 2, and a stride of 2.
-        pool = tf.nn.max_pool(relu,
+        pool = tf.nn.max_pool2d(input=relu,
                               ksize=[1, 2, 2, 1],
                               strides=[1, 2, 2, 1],
                               padding='SAME')
-        conv = tf.nn.conv2d(pool,
-                            conv2_weights,
+        conv = tf.nn.conv2d(input=pool,
+                            filters=conv2_weights,
                             strides=[1, 1, 1, 1],
                             padding='SAME')
         relu = tf.nn.relu(tf.nn.bias_add(conv, conv2_biases))
-        pool = tf.nn.max_pool(relu,
+        pool = tf.nn.max_pool2d(input=relu,
                               ksize=[1, 2, 2, 1],
                               strides=[1, 2, 2, 1],
                               padding='SAME')
@@ -231,7 +231,7 @@ def main(argv=None):  # pylint: disable=unused-argument
         # Add a 50% dropout during training only. Dropout also scales
         # activations such that no rescaling is needed at evaluation time.
         if train:
-            hidden = tf.nn.dropout(hidden, 0.5, seed=SEED)
+            hidden = tf.nn.dropout(hidden, 1 - (0.5), seed=SEED)
         return tf.matmul(hidden, fc2_weights) + fc2_biases
 
     # Training computation: logits + cross-entropy loss.
@@ -243,12 +243,12 @@ def main(argv=None):  # pylint: disable=unused-argument
 
     t = tf.one_hot(train_labels_node, NUM_LABELS)
     q = tf.nn.softmax(logits)
-    qqq = tf.arg_max(q, dimension=1)
+    qqq = tf.argmax(q, axis=1)
     z = tf.one_hot(qqq, NUM_LABELS)
     #cross_entropy = -tf.reduce_sum(t*tf.log(q),reduction_indices=1)
-    cross_entropy = -tf.reduce_sum((BETA*t+(1-BETA)*z)*tf.log(q),reduction_indices=1)
+    cross_entropy = -tf.reduce_sum(input_tensor=(BETA*t+(1-BETA)*z)*tf.math.log(q),axis=1)
     
-    loss = tf.reduce_mean(cross_entropy)
+    loss = tf.reduce_mean(input_tensor=cross_entropy)
     
 #     loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(
 #         logits, train_labels_node))
@@ -263,14 +263,14 @@ def main(argv=None):  # pylint: disable=unused-argument
     # controls the learning rate decay.
     batch = tf.Variable(0, dtype=data_type())
     # Decay once per epoch, using an exponential schedule starting at 0.01.
-    learning_rate = tf.train.exponential_decay(
+    learning_rate = tf.compat.v1.train.exponential_decay(
         0.01,                # Base learning rate.
         batch * BATCH_SIZE,  # Current index into the dataset.
         train_size,          # Decay step.
         0.95,                # Decay rate.
         staircase=True)
     # Use simple momentum for the optimization.
-    optimizer = tf.train.MomentumOptimizer(learning_rate,
+    optimizer = tf.compat.v1.train.MomentumOptimizer(learning_rate,
                                            0.9).minimize(loss,
                                                          global_step=batch)
   
@@ -304,9 +304,9 @@ def main(argv=None):  # pylint: disable=unused-argument
   
     # Create a local session to run the training.
     start_time = time.time()
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         # Run all the initializers to prepare the trainable parameters.
-        tf.global_variables_initializer().run() #pylint: disable=no-member
+        tf.compat.v1.global_variables_initializer().run() #pylint: disable=no-member
         print('Initialized!')
         # Loop through training steps.
         for step in xrange(int(num_epochs * train_size) // BATCH_SIZE):
@@ -344,4 +344,4 @@ def main(argv=None):  # pylint: disable=unused-argument
 
 
 if __name__ == '__main__':
-    tf.app.run()
+    tf.compat.v1.app.run()

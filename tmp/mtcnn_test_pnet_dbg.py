@@ -9,11 +9,11 @@ import align.detect_face
 
 #ref = io.loadmat('pnet_dbg.mat')
 with tf.Graph().as_default():
-    sess = tf.Session()
+    sess = tf.compat.v1.Session()
     with sess.as_default():
-        with tf.variable_scope('pnet'):
+        with tf.compat.v1.variable_scope('pnet'):
 #            data = tf.placeholder(tf.float32, (None,None,None,3), 'input')
-            data = tf.placeholder(tf.float32, (1,1610, 1901,3), 'input')
+            data = tf.compat.v1.placeholder(tf.float32, (1,1610, 1901,3), 'input')
             pnet = align.detect_face.PNet({'data':data})
             pnet.load('../../data/det1.npy', sess)
 #         with tf.variable_scope('rnet'):

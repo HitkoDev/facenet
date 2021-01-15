@@ -32,18 +32,18 @@ class BatchNormTest(unittest.TestCase):
     @unittest.skip("Skip batch norm test case")
     def testBatchNorm(self):
       
-        tf.set_random_seed(123)
+        tf.compat.v1.set_random_seed(123)
   
-        x = tf.placeholder(tf.float32, [None, 20, 20, 10], name='input')
-        phase_train = tf.placeholder(tf.bool, name='phase_train')
+        x = tf.compat.v1.placeholder(tf.float32, [None, 20, 20, 10], name='input')
+        phase_train = tf.compat.v1.placeholder(tf.bool, name='phase_train')
         
         # generate random noise to pass into batch norm
         #x_gen = tf.random_normal([50,20,20,10])
         
         bn = models.network.batch_norm(x, phase_train)
         
-        init = tf.global_variables_initializer()
-        sess = tf.Session(config=tf.ConfigProto())
+        init = tf.compat.v1.global_variables_initializer()
+        sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto())
         sess.run(init)
   
         with sess.as_default():
@@ -63,4 +63,3 @@ class BatchNormTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-    
