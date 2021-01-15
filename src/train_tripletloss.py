@@ -216,7 +216,7 @@ def main(args):
                 random.shuffle(imgs)
                 img = []
                 is_same = []
-                for i in range(len(imgs)) // 2:
+                for i in range(len(imgs) // 2):
                     a = imgs[2 * i]
                     b = imgs[2 * i + 1]
                     is_same.append(a['class'] == b['class'])
