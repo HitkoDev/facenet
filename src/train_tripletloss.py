@@ -225,7 +225,7 @@ def main(args):
 
                 evaluate(sess, img, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
                          batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, is_same, args.batch_size,
-                         args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size)
+                         args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size, args)
 
     return model_dir
 
@@ -435,7 +435,7 @@ def sample_people(dataset, people_per_batch, images_per_person):
 
 def evaluate(sess, image_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
              batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, actual_issame, batch_size,
-             nrof_folds, log_dir, step, summary_writer, embedding_size):
+             nrof_folds, log_dir, step, summary_writer, embedding_size, args):
     start_time = time.time()
     # Run forward pass to calculate embeddings
     print('Running forward pass on LFW images: ', end='')
@@ -444,7 +444,18 @@ def evaluate(sess, image_paths, embeddings, labels_batch, image_paths_placeholde
     assert(len(image_paths) == nrof_images)
     labels_array = np.reshape(np.arange(nrof_images), (-1, 3))
     image_paths_array = np.reshape(np.expand_dims(np.array(image_paths), 1), (-1, 3))
-    sess.run(enqueue_op, {image_paths_placeholder: image_paths_array, labels_placeholder: labels_array})
+
+    images_array = []
+    for p in image_paths_array:
+        imgs = []
+        for path in p:
+            image = cv2.imread(path)
+            out = cv2.resize(image, dsize=(args.image_size, args.image_size))
+            imgs.append(out)
+        images_array.append(imgs)
+    images_array = np.array(images_array)
+
+    sess.run(enqueue_op, {image_paths_placeholder: images_array, labels_placeholder: labels_array})
     emb_array = np.zeros((nrof_images, embedding_size))
     nrof_batches = int(np.ceil(nrof_images / batch_size))
     label_check_array = np.zeros((nrof_images,))
