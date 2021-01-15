@@ -210,7 +210,7 @@ def main(args):
 
                 # Save variables and the metagraph if it doesn't exist already
                 #save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
-                checkpoint.save()
+                checkpoint.save(file_prefix='chkp')
                 # Evaluate on LFW
                 if args.lfw_dir:
                     evaluate(sess, lfw_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
