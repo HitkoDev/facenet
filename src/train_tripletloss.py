@@ -23,29 +23,27 @@ FaceNet: A Unified Embedding for Face Recognition and Clustering: http://arxiv.o
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-from datetime import datetime
-import os.path
-import time
-import math
-import sys
-import tensorflow as tf
-import numpy as np
+import argparse
 import importlib
 import itertools
-import argparse
-import facenet
+import math
+import os.path
 import random
-import lfw
-from awe_dataset import AWEDataset
-import cv2
+import sys
+import time
+from datetime import datetime
 
+import cv2
+import numpy as np
+import tensorflow as tf
+from six.moves import xrange  # @UnresolvedImport
 from tensorflow.python.ops import data_flow_ops
 
-from six.moves import xrange  # @UnresolvedImport
+import facenet
+import lfw
+from awe_dataset import AWEDataset
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 

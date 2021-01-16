@@ -79,9 +79,10 @@ def center_loss(features, label, alfa, nrof_classes):
 def get_image_paths_and_labels(dataset):
     image_paths_flat = []
     labels_flat = []
-    for i in range(len(dataset)):
-        image_paths_flat += dataset[i].image_paths
-        labels_flat += [i] * len(dataset[i].image_paths)
+    for i in range(len(dataset.images)):
+        for img in dataset.images[i]:
+            image_paths_flat.append(img['src'])
+            labels_flat.append(i)
     return image_paths_flat, labels_flat
 
 def shuffle_examples(image_paths, labels):
@@ -108,8 +109,9 @@ def create_input_pipeline(input_queue, image_size, nrof_preprocess_threads, batc
         for filename in tf.unstack(filenames):
             file_contents = tf.io.read_file(filename)
             image = tf.image.decode_image(file_contents, 3)
+            image = tf.cast(image, tf.float32)
             image = tf.cond(pred=get_control_flag(control[0], RANDOM_ROTATE),
-                            true_fn=lambda:tf.compat.v1.py_func(random_rotate_image, [image], tf.uint8), 
+                            true_fn=lambda:tf.compat.v1.py_func(random_rotate_image, [image], tf.float32), 
                             false_fn=lambda:tf.identity(image))
             image = tf.cond(pred=get_control_flag(control[0], RANDOM_CROP), 
                             true_fn=lambda:tf.image.random_crop(image, image_size + (3,)), 
