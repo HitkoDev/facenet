@@ -370,8 +370,8 @@ def train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_o
             mask_shape = mask.shape
             # Make augmenters deterministic to apply similarly to images and masks
             det = augmentation.to_deterministic()
-            # image = det.augment_image(image)
-            # mask = det.augment_image(mask)
+            image = det.augment_image(image)
+            mask = det.augment_image(mask)
             # Verify that shapes didn't change
             assert image.shape == image_shape, "Augmentation shouldn't change image size"
             assert mask.shape == mask_shape, "Augmentation shouldn't change mask size"
