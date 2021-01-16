@@ -193,7 +193,6 @@ def main(args):
         # Create a saver
         vars = tf.compat.v1.trainable_variables()
         vars = [v for v in vars if 'logit' not in v.name.lower()]
-        print([v.name for v in vars])
         saver = tf.compat.v1.train.Saver(vars, max_to_keep=3)
 
         # Build the summary operation based on the TF collection of Summaries.
