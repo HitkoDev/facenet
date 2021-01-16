@@ -129,7 +129,7 @@ def main(args):
         nrof_preprocess_threads = 4
         input_queue = data_flow_ops.FIFOQueue(capacity=2000000,
                                               dtypes=[tf.int8, tf.int32, tf.int32],
-                                              shapes=[(1,args.image_size, args.image_size, 3), (1,), (1,)],
+                                              shapes=[(1, args.image_size, args.image_size, 3), (1,), (1,)],
                                               shared_name=None, name=None)
         enqueue_op = input_queue.enqueue_many([
             # image_paths_placeholder,
