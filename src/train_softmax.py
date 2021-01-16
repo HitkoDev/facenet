@@ -33,6 +33,7 @@ import sys
 import time
 from datetime import datetime
 
+import cv2
 import h5py
 import numpy as np
 import tensorflow as tf
@@ -44,7 +45,7 @@ import facenet
 import lfw
 from awe_dataset import AWEDataset
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 def main(args):
@@ -121,15 +122,19 @@ def main(args):
         batch_size_placeholder = tf.compat.v1.placeholder(tf.int32, name='batch_size')
         phase_train_placeholder = tf.compat.v1.placeholder(tf.bool, name='phase_train')
         image_paths_placeholder = tf.compat.v1.placeholder(tf.string, shape=(None, 1), name='image_paths')
+        image_placeholder = tf.compat.v1.placeholder(tf.int8, shape=(None, 1, args.image_size, args.image_size, 3), name='image_in')
         labels_placeholder = tf.compat.v1.placeholder(tf.int32, shape=(None, 1), name='labels')
         control_placeholder = tf.compat.v1.placeholder(tf.int32, shape=(None, 1), name='control')
 
         nrof_preprocess_threads = 4
         input_queue = data_flow_ops.FIFOQueue(capacity=2000000,
-                                              dtypes=[tf.string, tf.int32, tf.int32],
-                                              shapes=[(1,), (1,), (1,)],
+                                              dtypes=[tf.int8, tf.int32, tf.int32],
+                                              shapes=[(1,args.image_size, args.image_size, 3), (1,), (1,)],
                                               shared_name=None, name=None)
-        enqueue_op = input_queue.enqueue_many([image_paths_placeholder, labels_placeholder, control_placeholder], name='enqueue_op')
+        enqueue_op = input_queue.enqueue_many([
+            # image_paths_placeholder,
+            image_placeholder,
+            labels_placeholder, control_placeholder], name='enqueue_op')
         image_batch, label_batch = facenet.create_input_pipeline(input_queue, image_size, nrof_preprocess_threads, batch_size_placeholder)
 
         image_batch = tf.identity(image_batch, 'image_batch')
@@ -233,7 +238,10 @@ def main(args):
                 step = sess.run(global_step, feed_dict=None)
                 # Train for one epoch
                 t = time.time()
-                cont = train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_op, image_paths_placeholder, labels_placeholder,
+                cont = train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_op,
+                             # image_paths_placeholder,
+                             image_placeholder,
+                             labels_placeholder,
                              learning_rate_placeholder, phase_train_placeholder, batch_size_placeholder, control_placeholder, global_step,
                              total_loss, train_op, summary_op, summary_writer, regularization_losses, args.learning_rate_schedule_file,
                              stat, cross_entropy_mean, accuracy, learning_rate,
@@ -245,7 +253,10 @@ def main(args):
 
                 t = time.time()
                 if len(val_image_list) > 0 and ((epoch - 1) % args.validate_every_n_epochs == args.validate_every_n_epochs - 1 or epoch == args.max_nrof_epochs):
-                    validate(args, sess, epoch, val_image_list, val_label_list, enqueue_op, image_paths_placeholder, labels_placeholder, control_placeholder,
+                    validate(args, sess, epoch, val_image_list, val_label_list, enqueue_op,
+                             # image_paths_placeholder,
+                             image_placeholder,
+                             labels_placeholder, control_placeholder,
                              phase_train_placeholder, batch_size_placeholder,
                              stat, total_loss, regularization_losses, cross_entropy_mean, accuracy, args.validate_every_n_epochs, args.use_fixed_image_standardization)
                 stat['time_validate'][epoch - 1] = time.time() - t
@@ -307,7 +318,10 @@ def train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_o
           loss, train_op, summary_op, summary_writer, reg_losses, learning_rate_schedule_file,
           stat, cross_entropy_mean, accuracy,
           learning_rate, prelogits, prelogits_center_loss, random_rotate, random_crop, random_flip, prelogits_norm, prelogits_hist_max, use_fixed_image_standardization):
+    import imgaug
+    import imgaug.augmenters as iaa
     batch_number = 0
+    augmentation = iaa.Sequential([iaa.Rotate((-170, 170))])
 
     if args.learning_rate > 0.0:
         lr = args.learning_rate
@@ -324,10 +338,64 @@ def train(args, sess, epoch, image_list, label_list, index_dequeue_op, enqueue_o
     # Enqueue one epoch of image paths and labels
     labels_array = np.expand_dims(np.array(label_epoch), 1)
     image_paths_array = np.expand_dims(np.array(image_epoch), 1)
+
+    images_array = []
+    for p in image_paths_array:
+        imgs = []
+        for path in p:
+            image = cv2.imread(path)
+            w, h, c = image.shape
+            r = math.ceil((w ** 2 + h ** 2) ** 0.5)
+            pw = math.ceil((r - w) / 2)
+            ph = math.ceil((r - h) / 2)
+            image = np.pad(image, ((pw, pw), (ph, ph), (0, 0)))
+            m = path[:-4] + '.npy'
+            with open(m, 'rb') as file:
+                mask = np.load(file)
+            mask = np.pad(mask, ((pw, pw), (ph, ph)))
+
+            # Augmenters that are safe to apply to masks
+            # Some, such as Affine, have settings that make them unsafe, so always
+            # test your augmentation on masks
+            MASK_AUGMENTERS = ["Sequential", "SomeOf", "OneOf", "Sometimes",
+                               "Fliplr", "Flipud", "CropAndPad",
+                               "Affine", "PiecewiseAffine"]
+
+            def hook(images, augmenter, parents, default):
+                """Determines which augmenters to apply to masks."""
+                return augmenter.__class__.__name__ in MASK_AUGMENTERS
+
+            # Store shapes before augmentation to compare
+            image_shape = image.shape
+            mask_shape = mask.shape
+            # Make augmenters deterministic to apply similarly to images and masks
+            det = augmentation.to_deterministic()
+            image = det.augment_image(image)
+            mask = det.augment_image(mask)
+            # Verify that shapes didn't change
+            assert image.shape == image_shape, "Augmentation shouldn't change image size"
+            assert mask.shape == mask_shape, "Augmentation shouldn't change mask size"
+            horizontal_indicies = np.where(np.any(mask, axis=0))[0]
+            vertical_indicies = np.where(np.any(mask, axis=1))[0]
+            x1, x2 = horizontal_indicies[[0, -1]]
+            y1, y2 = vertical_indicies[[0, -1]]
+            x2 += 1
+            y2 += 1
+            mask_out = image * np.stack([mask, mask, mask], axis=2)
+            out = mask_out[y1:y2, x1:x2]
+            out = cv2.resize(out, dsize=(args.image_size, args.image_size))
+            #cv2.imwrite('verify.png', out)
+            imgs.append(out)
+        images_array.append(imgs)
+    images_array = np.array(images_array)
+
     control_value = facenet.RANDOM_ROTATE * random_rotate + facenet.RANDOM_CROP * random_crop + \
         facenet.RANDOM_FLIP * random_flip + facenet.FIXED_STANDARDIZATION * use_fixed_image_standardization
     control_array = np.ones_like(labels_array) * control_value
-    sess.run(enqueue_op, {image_paths_placeholder: image_paths_array, labels_placeholder: labels_array, control_placeholder: control_array})
+    sess.run(enqueue_op, {
+        # image_paths_placeholder: image_paths_array,
+        image_paths_placeholder: images_array,
+        labels_placeholder: labels_array, control_placeholder: control_array})
 
     # Training loop
     train_time = 0
@@ -389,8 +457,22 @@ def validate(args, sess, epoch, image_list, label_list, enqueue_op, image_paths_
     # Enqueue one epoch of image paths and labels
     labels_array = np.expand_dims(np.array(label_list[:nrof_images]), 1)
     image_paths_array = np.expand_dims(np.array(image_list[:nrof_images]), 1)
+
+    images_array = []
+    for p in image_paths_array:
+        imgs = []
+        for path in p:
+            image = cv2.imread(path)
+            out = cv2.resize(image, dsize=(args.image_size, args.image_size))
+            imgs.append(out)
+        images_array.append(imgs)
+    images_array = np.array(images_array)
+
     control_array = np.ones_like(labels_array, np.int32) * facenet.FIXED_STANDARDIZATION * use_fixed_image_standardization
-    sess.run(enqueue_op, {image_paths_placeholder: image_paths_array, labels_placeholder: labels_array, control_placeholder: control_array})
+    sess.run(enqueue_op, {
+        # image_paths_placeholder: image_paths_array,
+        image_paths_placeholder: images_array,
+        labels_placeholder: labels_array, control_placeholder: control_array})
 
     loss_array = np.zeros((nrof_batches,), np.float32)
     xent_array = np.zeros((nrof_batches,), np.float32)

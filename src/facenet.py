@@ -107,7 +107,7 @@ def create_input_pipeline(input_queue, image_size, nrof_preprocess_threads, batc
         filenames, label, control = input_queue.dequeue()
         images = []
         for filename in tf.unstack(filenames):
-            file_contents = tf.io.read_file(filename)
+            """file_contents = tf.io.read_file(filename)
             image = tf.image.decode_image(file_contents, 3)
             image = tf.cast(image, tf.float32)
             image = tf.cond(pred=get_control_flag(control[0], RANDOM_ROTATE),
@@ -126,8 +126,8 @@ def create_input_pipeline(input_queue, image_size, nrof_preprocess_threads, batc
                             true_fn=lambda:tf.image.flip_left_right(image),
                             false_fn=lambda:tf.identity(image))
             #pylint: disable=no-member
-            image.set_shape(image_size + (3,))
-            images.append(image)
+            image.set_shape(image_size + (3,))"""
+            images.append(tf.image.per_image_standardization(filename))
         images_and_labels_list.append([images, label])
 
     image_batch, label_batch = tf.compat.v1.train.batch_join(
