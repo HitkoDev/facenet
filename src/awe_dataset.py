@@ -21,5 +21,6 @@ class AWEDataset(object):
                     "mask": f[:-4] + '.npy',
                     "class": c
                 })
+        self.images_map = images
         self.images = [images[k] for k in images]
         self.classes = classes

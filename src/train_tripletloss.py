@@ -74,6 +74,7 @@ def main(args):
 
     if args.lfw_dir:
         print('LFW directory: %s' % args.lfw_dir)
+        train_dataset = AWEDataset(args.data_dir)
         test_dataset = AWEDataset(args.lfw_dir)
         imgs = test_dataset.images
         img = []
@@ -89,7 +90,15 @@ def main(args):
                     True
                 ])
                 c_same += 1
-        while c_diff < (c_same * 5) or (c_diff + c_same) % 3 != 0:
+            base = train_dataset.images_map[im2[0]['class']]
+            random.shuffle(base)
+            img.append([
+                im2[0]['src'],
+                base[0]['src'],
+                True
+            ])
+            c_same += 1
+        while c_diff < (c_same * 1) or (c_diff + c_same) % 3 != 0:
             a = random.randint(0, len(imgs) - 1)
             b = random.randint(0, len(imgs) - 1)
             if a != b:
