@@ -23,31 +23,25 @@ FaceNet: A Unified Embedding for Face Recognition and Clustering: http://arxiv.o
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
-from datetime import datetime
-import os.path
-import time
-import math
-import sys
-import tensorflow as tf
-import numpy as np
+import argparse
 import importlib
 import itertools
-import argparse
-import facenet
-import lfw
-from awe_dataset import AWEDataset
-import cv2
+import os.path
+import sys
+import time
+from datetime import datetime
 
+import numpy as np
+import tensorflow as tf
+from six.moves import xrange  # @UnresolvedImport
 from tensorflow.python.ops import data_flow_ops
 
-from six.moves import xrange  # @UnresolvedImport
+import facenet
+import lfw
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
 
 def main(args):
 
@@ -95,18 +89,13 @@ def main(args):
         phase_train_placeholder = tf.compat.v1.placeholder(tf.bool, name='phase_train')
 
         image_paths_placeholder = tf.compat.v1.placeholder(tf.string, shape=(None, 3), name='image_paths')
-        image_placeholder = tf.compat.v1.placeholder(tf.int8, shape=(None, 3, args.image_size, args.image_size, 3), name='image_in')
         labels_placeholder = tf.compat.v1.placeholder(tf.int64, shape=(None, 3), name='labels')
 
         input_queue = data_flow_ops.FIFOQueue(capacity=100000,
-                                              dtypes=[tf.int8, tf.int64],
-                                              shapes=[(3, args.image_size, args.image_size, 3), (3,)],
+                                              dtypes=[tf.string, tf.int64],
+                                              shapes=[(3,), (3,)],
                                               shared_name=None, name=None)
-        enqueue_op = input_queue.enqueue_many([
-            image_placeholder,
-            # image_paths_placeholder,
-            labels_placeholder
-        ])
+        enqueue_op = input_queue.enqueue_many([image_paths_placeholder, labels_placeholder])
 
         nrof_preprocess_threads = 4
         images_and_labels = []
@@ -114,7 +103,7 @@ def main(args):
             filenames, label = input_queue.dequeue()
             images = []
             for filename in tf.unstack(filenames):
-                """file_contents = tf.io.read_file(filename)
+                file_contents = tf.io.read_file(filename)
                 image = tf.image.decode_image(file_contents, channels=3)
 
                 if args.random_crop:
@@ -125,12 +114,9 @@ def main(args):
                     image = tf.image.random_flip_left_right(image)
 
                 #pylint: disable=no-member
-                image.set_shape((args.image_size, args.image_size, 3))"""
-                images.append(tf.image.per_image_standardization(filename))
-            images_and_labels.append([
-                images,
-                label
-            ])
+                image.set_shape((args.image_size, args.image_size, 3))
+                images.append(tf.image.per_image_standardization(image))
+            images_and_labels.append([images, label])
 
         image_batch, labels_batch = tf.compat.v1.train.batch_join(
             images_and_labels, batch_size=batch_size_placeholder,
@@ -181,12 +167,6 @@ def main(args):
         coord = tf.train.Coordinator()
         tf.compat.v1.train.start_queue_runners(coord=coord, sess=sess)
 
-        train_dataset_path = os.path.join(args.data_dir, 'train')
-        test_dataset_path = os.path.join(args.data_dir, 'test')
-
-        train_dataset = AWEDataset(train_dataset_path)
-        test_dataset = AWEDataset(test_dataset_path)
-
         with sess.as_default():
 
             if args.pretrained_model:
@@ -199,10 +179,7 @@ def main(args):
                 step = sess.run(global_step, feed_dict=None)
                 epoch = step // args.epoch_size
                 # Train for one epoch
-                train(args, sess, train_dataset, epoch,
-                      image_placeholder,
-                      # image_paths_placeholder,
-                      labels_placeholder, labels_batch,
+                train(args, sess, train_set, epoch, image_paths_placeholder, labels_placeholder, labels_batch,
                       batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, input_queue, global_step,
                       embeddings, total_loss, train_op, summary_op, summary_writer, args.learning_rate_schedule_file,
                       args.embedding_size, anchor, positive, negative, triplet_loss)
@@ -223,10 +200,7 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
           batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, input_queue, global_step,
           embeddings, loss, train_op, summary_op, summary_writer, learning_rate_schedule_file,
           embedding_size, anchor, positive, negative, triplet_loss):
-    import imgaug
-    import imgaug.augmenters as iaa
     batch_number = 0
-    augmentation = iaa.Sequential([iaa.Rotate((-170, 170))])
 
     if args.learning_rate > 0.0:
         lr = args.learning_rate
@@ -241,61 +215,7 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
         nrof_examples = args.people_per_batch * args.images_per_person
         labels_array = np.reshape(np.arange(nrof_examples), (-1, 3))
         image_paths_array = np.reshape(np.expand_dims(np.array(image_paths), 1), (-1, 3))
-        images_array = []
-        for p in image_paths_array:
-            imgs = []
-            for path in p:
-                image = cv2.imread(path)
-                w, h, c = image.shape
-                r = math.ceil((w ** 2 + h ** 2) ** 0.5)
-                pw = math.ceil((r - w) / 2)
-                ph = math.ceil((r - h) / 2)
-                image = np.pad(image, ((pw, pw), (ph, ph), (0, 0)))
-                m = path[:-4] + '.npy'
-                with open(m, 'rb') as file:
-                    mask = np.load(file)
-                mask = np.pad(mask, ((pw, pw), (ph, ph)))
-
-                # Augmenters that are safe to apply to masks
-                # Some, such as Affine, have settings that make them unsafe, so always
-                # test your augmentation on masks
-                MASK_AUGMENTERS = ["Sequential", "SomeOf", "OneOf", "Sometimes",
-                                   "Fliplr", "Flipud", "CropAndPad",
-                                   "Affine", "PiecewiseAffine"]
-
-                def hook(images, augmenter, parents, default):
-                    """Determines which augmenters to apply to masks."""
-                    return augmenter.__class__.__name__ in MASK_AUGMENTERS
-
-                # Store shapes before augmentation to compare
-                image_shape = image.shape
-                mask_shape = mask.shape
-                # Make augmenters deterministic to apply similarly to images and masks
-                det = augmentation.to_deterministic()
-                #image = det.augment_image(image)
-                #mask = det.augment_image(mask)
-                # Verify that shapes didn't change
-                assert image.shape == image_shape, "Augmentation shouldn't change image size"
-                assert mask.shape == mask_shape, "Augmentation shouldn't change mask size"
-                horizontal_indicies = np.where(np.any(mask, axis=0))[0]
-                vertical_indicies = np.where(np.any(mask, axis=1))[0]
-                x1, x2 = horizontal_indicies[[0, -1]]
-                y1, y2 = vertical_indicies[[0, -1]]
-                x2 += 1
-                y2 += 1
-                mask_out = image * np.stack([mask, mask, mask], axis=2)
-                out = mask_out[y1:y2, x1:x2]
-                out = cv2.resize(out, dsize=(args.image_size, args.image_size))
-                #cv2.imwrite('verify.png', out)
-                imgs.append(out)
-            images_array.append(imgs)
-        images_array = np.array(images_array)
-
-        sess.run(enqueue_op, {
-            # image_paths_placeholder: image_paths_array,
-            image_paths_placeholder: images_array,
-            labels_placeholder: labels_array
-        })
+        sess.run(enqueue_op, {image_paths_placeholder: image_paths_array, labels_placeholder: labels_array})
         emb_array = np.zeros((nrof_examples, embedding_size))
         nrof_batches = int(np.ceil(nrof_examples / args.batch_size))
         for i in range(nrof_batches):
@@ -308,7 +228,7 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
         # Select triplets based on the embeddings
         print('Selecting suitable triplets for training')
         triplets, nrof_random_negs, nrof_triplets = select_triplets(emb_array, num_per_class,
-                                                                    np.reshape(images_array, (-1, args.image_size, args.image_size, 3)), args.people_per_batch, args.alpha)
+                                                                    image_paths, args.people_per_batch, args.alpha)
         selection_time = time.time() - start_time
         print('(nrof_random_negs, nrof_triplets) = (%d, %d): time=%.3f seconds' %
               (nrof_random_negs, nrof_triplets, selection_time))
@@ -317,7 +237,7 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
         nrof_batches = int(np.ceil(nrof_triplets * 3 / args.batch_size))
         triplet_paths = list(itertools.chain(*triplets))
         labels_array = np.reshape(np.arange(len(triplet_paths)), (-1, 3))
-        triplet_paths_array = np.reshape(np.expand_dims(np.array(triplet_paths), 1), (-1, 3, args.image_size, args.image_size, 3))
+        triplet_paths_array = np.reshape(np.expand_dims(np.array(triplet_paths), 1), (-1, 3))
         sess.run(enqueue_op, {image_paths_placeholder: triplet_paths_array, labels_placeholder: labels_array})
         nrof_examples = len(triplet_paths)
         train_time = 0
@@ -356,8 +276,6 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
     num_trips = 0
     triplets = []
 
-    print(embeddings.shape)
-
     # VGG Face: Choosing good triplets is crucial and should strike a balance between
     #  selecting informative (i.e. challenging) examples and swamping training with examples that
     #  are too hard. This is achieve by extending each pair (a, p) to a triplet (a, p, n) by sampling
@@ -375,7 +293,7 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
                 pos_dist_sqr = np.sum(np.square(embeddings[a_idx] - embeddings[p_idx]))
                 neg_dists_sqr[emb_start_idx:emb_start_idx + nrof_images] = np.NaN
                 # all_neg = np.where(np.logical_and(neg_dists_sqr-pos_dist_sqr<alpha, pos_dist_sqr<neg_dists_sqr))[0]  # FaceNet selection
-                all_neg = np.where((neg_dists_sqr - pos_dist_sqr) < alpha)[0]  # VGG Face selecction
+                all_neg = np.where(neg_dists_sqr - pos_dist_sqr < alpha)[0]  # VGG Face selecction
                 nrof_random_negs = all_neg.shape[0]
                 if nrof_random_negs > 0:
                     rnd_idx = np.random.randint(nrof_random_negs)
@@ -397,7 +315,7 @@ def sample_people(dataset, people_per_batch, images_per_person):
     nrof_images = people_per_batch * images_per_person
 
     # Sample classes from the dataset
-    nrof_classes = len(dataset.images)
+    nrof_classes = len(dataset)
     class_indices = np.arange(nrof_classes)
     np.random.shuffle(class_indices)
 
@@ -408,12 +326,12 @@ def sample_people(dataset, people_per_batch, images_per_person):
     # Sample images from these classes until we have enough
     while len(image_paths) < nrof_images:
         class_index = class_indices[i]
-        nrof_images_in_class = len(dataset.images[class_index])
+        nrof_images_in_class = len(dataset[class_index])
         image_indices = np.arange(nrof_images_in_class)
         np.random.shuffle(image_indices)
         nrof_images_from_class = min(nrof_images_in_class, images_per_person, nrof_images - len(image_paths))
         idx = image_indices[0:nrof_images_from_class]
-        image_paths_for_class = [dataset.images[class_index][j]['src'] for j in idx]
+        image_paths_for_class = [dataset[class_index].image_paths[j] for j in idx]
         sampled_class_indices += [class_index] * nrof_images_from_class
         image_paths += image_paths_for_class
         num_per_class.append(nrof_images_from_class)
@@ -513,7 +431,7 @@ def parse_arguments(argv):
                         help='Load a pretrained model before training starts.')
     parser.add_argument('--data_dir', type=str,
                         help='Path to the data directory containing aligned face patches.',
-                        default='./images/converted')
+                        default='./fn/train')
     parser.add_argument('--model_def', type=str,
                         help='Model definition. Points to a module containing the definition of the inference graph.', default='models.inception_resnet_v1')
     parser.add_argument('--max_nrof_epochs', type=int,
@@ -527,7 +445,7 @@ def parse_arguments(argv):
     parser.add_argument('--images_per_person', type=int,
                         help='Number of images per person.', default=3)
     parser.add_argument('--epoch_size', type=int,
-                        help='Number of batches per epoch.', default=50)
+                        help='Number of batches per epoch.', default=99)
     parser.add_argument('--alpha', type=float,
                         help='Positive to negative triplet distance margin.', default=0.2)
     parser.add_argument('--embedding_size', type=int,
@@ -545,7 +463,7 @@ def parse_arguments(argv):
                         help='The optimization algorithm to use', default='ADAM')
     parser.add_argument('--learning_rate', type=float,
                         help='Initial learning rate. If set to a negative value a learning rate ' +
-                        'schedule can be specified in the file "learning_rate_schedule.txt"', default=0.0001)
+                        'schedule can be specified in the file "learning_rate_schedule.txt"', default=0.1)
     parser.add_argument('--learning_rate_decay_epochs', type=int,
                         help='Number of epochs between learning rate decay.', default=5)
     parser.add_argument('--learning_rate_decay_factor', type=float,
@@ -561,7 +479,7 @@ def parse_arguments(argv):
     parser.add_argument('--lfw_pairs', type=str,
                         help='The file containing the pairs to use for validation.', default='data/pairs.txt')
     parser.add_argument('--lfw_dir', type=str,
-                        help='Path to the data directory containing aligned face patches.', default='')
+                        help='Path to the data directory containing aligned face patches.', default='./fn/test')
     parser.add_argument('--lfw_nrof_folds', type=int,
                         help='Number of folds to use for cross validation. Mainly used for testing.', default=10)
     return parser.parse_args(argv)
