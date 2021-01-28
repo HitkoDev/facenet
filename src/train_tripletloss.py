@@ -29,6 +29,7 @@ import argparse
 import importlib
 import itertools
 import os.path
+import random
 import sys
 import time
 from datetime import datetime
@@ -40,6 +41,7 @@ from tensorflow.python.ops import data_flow_ops
 
 import facenet
 import lfw
+from awe_dataset import AWEDataset
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
@@ -72,10 +74,34 @@ def main(args):
 
     if args.lfw_dir:
         print('LFW directory: %s' % args.lfw_dir)
-        # Read the file containing the pairs used for testing
-        pairs = lfw.read_pairs(os.path.expanduser(args.lfw_pairs))
-        # Get the paths for the corresponding images
-        lfw_paths, actual_issame = lfw.get_paths(os.path.expanduser(args.lfw_dir), pairs)
+        test_dataset = AWEDataset(args.lfw_dir)
+        imgs = test_dataset.images
+        img = []
+        c_same = 0
+        c_diff = 0
+        for i in range(len(imgs)):
+            im2 = imgs[i]
+            if len(im2) > 1:
+                random.shuffle(im2)
+                img.append([
+                    im2[0]['src'],
+                    im2[1]['src'],
+                    True
+                ])
+                c_same += 1
+        while c_diff < (c_same * 5) or (c_diff + c_same) % 3 != 0:
+            a = random.randint(0, len(imgs) - 1)
+            b = random.randint(0, len(imgs) - 1)
+            if a != b:
+                img.append([
+                    imgs[a][-1]['src'],
+                    imgs[b][-1]['src'],
+                    False
+                ])
+                c_diff += 1
+        random.shuffle(img)
+        actual_issame = [x[2] for x in img]
+        lfw_paths = [y for x in img for y in x[0:-1]]
 
     with tf.Graph().as_default():
         tf.compat.v1.set_random_seed(args.seed)
