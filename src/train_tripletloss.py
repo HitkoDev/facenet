@@ -331,7 +331,7 @@ def select_triplets(embeddings, nrof_images_per_class, image_paths, people_per_b
                 pos_dist_sqr = np.sum(np.square(embeddings[a_idx] - embeddings[p_idx]))
                 neg_dists_sqr[emb_start_idx:emb_start_idx + nrof_images] = np.NaN
                 # all_neg = np.where(np.logical_and(neg_dists_sqr-pos_dist_sqr<alpha, pos_dist_sqr<neg_dists_sqr))[0]  # FaceNet selection
-                all_neg = np.where(neg_dists_sqr - pos_dist_sqr < alpha)[0]  # VGG Face selecction
+                all_neg = np.where(neg_dists_sqr < pos_dist_sqr)[0]  # VGG Face selecction
                 nrof_random_negs = all_neg.shape[0]
                 if nrof_random_negs > 0:
                     rnd_idx = np.random.randint(nrof_random_negs)
