@@ -217,7 +217,10 @@ def main(args):
                                  learning_rate, args.moving_average_decay, tf.compat.v1.global_variables(), args.log_histograms)
 
         # Create a saver
-        saver = tf.compat.v1.train.Saver(tf.compat.v1.trainable_variables(), max_to_keep=3)
+        vars = tf.compat.v1.trainable_variables()
+        vars = [v for v in vars if 'logit' not in v.name.lower()]
+        print([v.name for v in vars])
+        saver = tf.compat.v1.train.Saver(vars, max_to_keep=3)
 
         # Build the summary operation based on the TF collection of Summaries.
         summary_op = tf.compat.v1.summary.merge_all()
