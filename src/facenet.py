@@ -58,7 +58,7 @@ def triplet_loss(anchor, positive, negative, alpha):
         neg_dist = tf.reduce_sum(input_tensor=tf.square(tf.subtract(anchor, negative)), axis=1)
 
         basic_loss = tf.nn.softplus(tf.subtract(pos_dist, neg_dist))
-        loss = tf.reduce_mean(input_tensor=tf.maximum(basic_loss, 0.0), axis=0)
+        loss = tf.reduce_mean(input_tensor=basic_loss, axis=0)
 
     return loss
 
