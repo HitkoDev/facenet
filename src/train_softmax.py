@@ -116,7 +116,7 @@ def main(args):
                 True
             ])
             c_same += 1
-        while c_diff < (c_same * 1) or (c_diff + c_same) % 3 != 0:
+        while c_diff < (c_same * 1) or (c_diff + c_same) % args.lfw_batch_size != 0:
             a = random.randint(0, len(imgs) - 1)
             b = random.randint(0, len(imgs) - 1)
             if a != b:
@@ -613,7 +613,7 @@ def parse_arguments(argv):
     parser.add_argument('--lfw_dir', type=str,
                         help='Path to the data directory containing aligned face patches.', default='./fn/test')
     parser.add_argument('--lfw_batch_size', type=int,
-                        help='Number of images to process in a batch in the LFW test set.', default=100)
+                        help='Number of images to process in a batch in the LFW test set.', default=90)
     parser.add_argument('--lfw_nrof_folds', type=int,
                         help='Number of folds to use for cross validation. Mainly used for testing.', default=10)
     parser.add_argument('--lfw_distance_metric', type=int,
