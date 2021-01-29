@@ -84,20 +84,23 @@ def main(args):
             im2 = imgs[i]
             if len(im2) > 1:
                 random.shuffle(im2)
-                img.append([
-                    im2[0]['src'],
-                    im2[1]['src'],
-                    True
-                ])
-                c_same += 1
-            base = train_dataset.images_map[im2[0]['class']]
+                i = 0
+                while i < len(im2) - 1:
+                    img.append([
+                        im2[i]['src'],
+                        im2[i + 1]['src'],
+                        True
+                    ])
+                    i += 2
+                    c_same += 1
+            """base = train_dataset.images_map[im2[0]['class']]
             random.shuffle(base)
             img.append([
                 im2[0]['src'],
                 base[0]['src'],
                 True
             ])
-            c_same += 1
+            c_same += 1"""
         while c_diff < (c_same * 1) or (c_diff + c_same) % 3 != 0:
             a = random.randint(0, len(imgs) - 1)
             b = random.randint(0, len(imgs) - 1)
@@ -474,7 +477,7 @@ def parse_arguments(argv):
     parser.add_argument('--batch_size', type=int,
                         help='Number of images to process in a batch.', default=189)
     parser.add_argument('--image_size', type=int,
-                        help='Image size (height, width) in pixels.', default=224)
+                        help='Image size (height, width) in pixels.', default=160)
     parser.add_argument('--people_per_batch', type=int,
                         help='Number of people per batch.', default=189)
     parser.add_argument('--images_per_person', type=int,
