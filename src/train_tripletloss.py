@@ -472,11 +472,11 @@ def parse_arguments(argv):
     parser.add_argument('--max_nrof_epochs', type=int,
                         help='Number of epochs to run.', default=500)
     parser.add_argument('--batch_size', type=int,
-                        help='Number of images to process in a batch.', default=189)
+                        help='Number of images to process in a batch.', default=90)
     parser.add_argument('--image_size', type=int,
-                        help='Image size (height, width) in pixels.', default=224)
+                        help='Image size (height, width) in pixels.', default=160)
     parser.add_argument('--people_per_batch', type=int,
-                        help='Number of people per batch.', default=189)
+                        help='Number of people per batch.', default=45)
     parser.add_argument('--images_per_person', type=int,
                         help='Number of images per person.', default=3)
     parser.add_argument('--epoch_size', type=int,
@@ -484,7 +484,7 @@ def parse_arguments(argv):
     parser.add_argument('--alpha', type=float,
                         help='Positive to negative triplet distance margin.', default=0.2)
     parser.add_argument('--embedding_size', type=int,
-                        help='Dimensionality of the embedding.', default=512)
+                        help='Dimensionality of the embedding.', default=128)
     parser.add_argument('--random_crop',
                         help='Performs random cropping of training images. If false, the center image_size pixels from the training images are used. ' +
                         'If the size of the images in the data directory is equal to image_size no cropping is performed', action='store_true')
