@@ -44,7 +44,7 @@ import facenet
 import lfw
 from awe_dataset import AWEDataset
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 def main(args):
@@ -549,7 +549,7 @@ def parse_arguments(argv):
     parser.add_argument('--epoch_size', type=int,
                         help='Number of batches per epoch.', default=1000)
     parser.add_argument('--embedding_size', type=int,
-                        help='Dimensionality of the embedding.', default=128)
+                        help='Dimensionality of the embedding.', default=512)
     parser.add_argument('--random_crop',
                         help='Performs random cropping of training images. If false, the center image_size pixels from the training images are used. ' +
                         'If the size of the images in the data directory is equal to image_size no cropping is performed', action='store_true')
