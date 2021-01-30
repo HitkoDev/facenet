@@ -421,7 +421,7 @@ def evaluate(sess, image_paths, embeddings, labels_batch, image_paths_placeholde
     summary_writer.add_summary(summary, step)
     with open(os.path.join(log_dir, 'lfw_result.txt'), 'at') as f:
         f.write('%d\t%.5f\t%.5f\n' % (step, np.mean(accuracy), val))
-    return accuracy, val
+    return np.mean(accuracy), val
 
 
 def save_variables_and_metagraph(sess, saver, summary_writer, model_dir, model_name, step, acc=None, val=None):
