@@ -188,7 +188,7 @@ def main(args):
                                  learning_rate, args.moving_average_decay, tf.compat.v1.global_variables())
 
         # Create a saver
-        saver = tf.compat.v1.train.Saver(tf.compat.v1.trainable_variables(), max_to_keep=3)
+        saver = tf.compat.v1.train.Saver(tf.compat.v1.trainable_variables(), max_to_keep=None)
 
         # Build the summary operation based on the TF collection of Summaries.
         summary_op = tf.compat.v1.summary.merge_all()
