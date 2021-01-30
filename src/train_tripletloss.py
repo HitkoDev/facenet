@@ -429,7 +429,7 @@ def save_variables_and_metagraph(sess, saver, summary_writer, model_dir, model_n
     print('Saving variables')
     start_time = time.time()
     if acc:
-        name = '{}_{}_{}'.format(model_name, acc, val)
+        name = '%s_%.5f_%.5f' % (model_name, acc, val)
     else:
         name = model_name
     checkpoint_path = os.path.join(model_dir, 'model-%s.ckpt' % name)
