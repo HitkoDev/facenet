@@ -222,14 +222,18 @@ def main(args):
                       embeddings, total_loss, train_op, summary_op, summary_writer, args.learning_rate_schedule_file,
                       args.embedding_size, anchor, positive, negative, triplet_loss)
 
-                # Save variables and the metagraph if it doesn't exist already
-                save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
-
+                acc = None
                 # Evaluate on LFW
                 if args.lfw_dir:
-                    evaluate(sess, lfw_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
-                             batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, actual_issame, args.batch_size,
-                             args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size)
+                    acc, val = evaluate(sess, lfw_paths, embeddings, labels_batch, image_paths_placeholder, labels_placeholder,
+                                        batch_size_placeholder, learning_rate_placeholder, phase_train_placeholder, enqueue_op, actual_issame, args.batch_size,
+                                        args.lfw_nrof_folds, log_dir, step, summary_writer, args.embedding_size)
+
+                # Save variables and the metagraph if it doesn't exist already
+                if acc:
+                    save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step, acc, val)
+                else:
+                    save_variables_and_metagraph(sess, saver, summary_writer, model_dir, subdir, step)
 
     return model_dir
 
@@ -417,17 +421,22 @@ def evaluate(sess, image_paths, embeddings, labels_batch, image_paths_placeholde
     summary_writer.add_summary(summary, step)
     with open(os.path.join(log_dir, 'lfw_result.txt'), 'at') as f:
         f.write('%d\t%.5f\t%.5f\n' % (step, np.mean(accuracy), val))
+    return accuracy, val
 
 
-def save_variables_and_metagraph(sess, saver, summary_writer, model_dir, model_name, step):
+def save_variables_and_metagraph(sess, saver, summary_writer, model_dir, model_name, step, acc=None, val=None):
     # Save the model checkpoint
     print('Saving variables')
     start_time = time.time()
-    checkpoint_path = os.path.join(model_dir, 'model-%s.ckpt' % model_name)
+    if acc:
+        name = '{}_{}_{}'.format(model_name, acc, val)
+    else:
+        name = model_name
+    checkpoint_path = os.path.join(model_dir, 'model-%s.ckpt' % name)
     saver.save(sess, checkpoint_path, global_step=step, write_meta_graph=False)
     save_time_variables = time.time() - start_time
     print('Variables saved in %.2f seconds' % save_time_variables)
-    metagraph_filename = os.path.join(model_dir, 'model-%s.meta' % model_name)
+    metagraph_filename = os.path.join(model_dir, 'model-%s.meta' % name)
     save_time_metagraph = 0
     if not os.path.exists(metagraph_filename):
         print('Saving metagraph')
