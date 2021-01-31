@@ -274,7 +274,7 @@ def train(args, sess, dataset, epoch, image_paths_placeholder, labels_placeholde
         while nrof_triplets * 3 < args.batch_size * 4:
             triplets, nrof_random_negs, nrof_triplets = select_triplets(emb_array, num_per_class, image_paths, args.people_per_batch, alpha)
             alpha = alpha * 1.01
-        nrof_triplets = int(np.floor(nrof_triplets * 3 / args.batch_size)) * args.batch_size / 3 
+        nrof_triplets = int(np.floor(nrof_triplets * 3 / args.batch_size) * args.batch_size / 3)
         triplets = triplets[0:nrof_triplets]
         selection_time = time.time() - start_time
         print('(nrof_random_negs, nrof_triplets) = (%d, %d): time=%.3f seconds' %
